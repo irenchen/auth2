@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Authentication</title>
+    <!-- load bootstrap css -->
+    <!-- load fontawesome -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"> 
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"> 
+    <style>
+        body { padding-top:80px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+
+      <div class="page-header text-center">
+        <h1><span class="fa fa-anchor">Profile Page</span></h1>
+        <a href="/logout" class="btn btn-default btn-sm">Logout</a>
+      </div>
+
+      <div class="row">
+
+        <div class="col-sm-6">
+          <div class="well">
+            <h3><span class="fa fa-user"></span>Local</h3>
+            <p>
+              <strong>id</strong>: <%= user._id %><br/>
+              <strong>email</strong>: <%= user.local.email %><br/>
+              <strong>password</strong>: <%= user.local.password %>
+            </p>
+          </div>
+        </div>
+
+        <div class="col-sm-6">
+          <div class="well">
+            <h3><span class="fa fa-user"></span>Google+</h3>
+            <p>
+              <strong>id</strong>: <%= user.google.id %><br/>
+              <srtong>token</srtong>: <%= user.google.token %><br/>
+              <strong>email</strong>: <%= user.google.email %><br/>
+              <strong>name</strong>: <%= user.google.name %>
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="row">
+
+        <div class="col-sm-6">
+          <div class="well">
+            <h3><span class="fa fa-user"></span>Facebook</h3>
+            <p>
+              <strong>id</strong>: <%= user.facebook.id %><br/>
+              <srtong>token</srtong>: <%= user.facebook.token %><br/>
+              <strong>name</strong>: <%= user.facebook.name %>
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </body>
+</html>

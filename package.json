@@ -23,6 +23,7 @@
     "passport-google-oauth20": "^1.0.0",
     "passport-local": "^1.0.0",
     "passport-twitter": "^1.0.4",
-    "serve-favicon": "~2.4.2"
+    "serve-favicon": "~2.4.2",
+    "uuid-v4": "^0.1.0"
   }
 }

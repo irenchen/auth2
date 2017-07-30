@@ -11,6 +11,8 @@ var User = require('../models/user');
 // load the auth variables
 var configAuth = require('../../auth');
 
+var uuid = require('uuid-v4');
+
 module.exports = function(passport) {
     // =========================================================================
     // passport session setup ==================================================
@@ -55,7 +57,7 @@ module.exports = function(passport) {
                     var newUser = new User();
                     newUser.local.email = email;
                     newUser.local.password = newUser.generateHash(password);
-
+                    newUser.local.token = uuid();
                     // save the user
                     newUser.save(function(err) {
                         if(err) throw err;
@@ -80,7 +82,11 @@ module.exports = function(passport) {
                 return done(null, false, req.flash('loginMessage', 'wrong password'));
             }
             // all is well, return successful user
-            return done(null, user);
+            user.local.token = uuid();
+            user.save(function(err) {
+                if(err) throw err;
+                return done(null, user);
+            });            
         });
     }));
 
@@ -91,30 +97,67 @@ module.exports = function(passport) {
         clientID: configAuth.googleAuth.clientID,
         clientSecret: configAuth.googleAuth.clientSecret,
         callbackURL: configAuth.googleAuth.callbackURL,
+        passReqToCallback: true,
     },
-    function(token, refreshToken, profile, done) {
+    function(req, token, refreshToken, profile, done) {
         console.log("profile : " + JSON.stringify(profile, null, 2));
         // make the call async
         process.nextTick(function() {
-            User.findOne({ 'google.id' : profile.id}, function(err, user) {
-                if(err) return done(err, null);
-                if(user) {
-                    return done(null, user);
-                } else {
-                    var newUser = new User();
-                    // set user properties
-                    newUser.google.id = profile.id;
-                    newUser.google.token = token;
-                    newUser.google.name = profile.name.familyName + profile.name.givenName;
-                    newUser.google.email = profile.emails[0].value;
+            // check if the user is already logged in
+            if(!req.user) {
+                // find the user in the database based on their google id
+                User.findOne({ 'google.id' : profile.id}, function(err, user) {
+                    // if there is an error, stop everything and return that
+                    // ie an error connecting to the database
+                    if(err) return done(err, null);
+                    // if the user is found, then log them in
+                    if(user) {
+                        // if there is a user id already but no token (user was linked at one point and then removed)
+                        // just add our token and profile information 
+                        if(!user.google.token) {
+                            user.google.token = token;
+                            user.google.name = profile.name.familyName + profile.name.givenName;
+                            user.google.email = profile.emails[0].value;
 
-                    // save the user
-                    newUser.save(err => {
-                        if(err) throw err;
-                        return done(null, newUser);
-                    });
-                }
-            });
+                            user.save(err => {
+                                if(err) throw err;
+                                return done(null, user);
+                            });
+                        } else {
+                            // user found, return that user
+                            return done(null, user);
+                        }                    
+                        
+                    } else {
+                        // if there is no user found with that google id, create them
+                        var newUser = new User();
+                        // set user properties
+                        newUser.google.id = profile.id;
+                        newUser.google.token = token;
+                        newUser.google.name = profile.name.familyName + profile.name.givenName;
+                        newUser.google.email = profile.emails[0].value;
+
+                        // save the user
+                        newUser.save(err => {
+                            if(err) throw err;
+                            return done(null, newUser);
+                        });
+                    }
+                });
+            } else {
+                // user already exists and is logged in, we have to link accounts
+                var user = req.user;
+                 // update the current users google credentials
+                user.google.id = profile.id;
+                user.google.token = token;
+                user.google.name = profile.name.familyName + profile.name.givenName;
+                user.google.email = profile.emails[0].value;
+                user.save(function(err) {
+                    if(err) throw err;
+                    return done(null, user);
+                })
+            }
+
         });
     }));
 
@@ -125,29 +168,56 @@ module.exports = function(passport) {
         clientID: configAuth.facebookAuth.clientID,
         clientSecret: configAuth.facebookAuth.clientSecret,
         callbackURL: configAuth.facebookAuth.callbackURL,
+        passReqToCallback: true,
     }, 
         // facebook will send back the token and profile
-        function(token, refreshToken, profile, done) {
+        function(req, token, refreshToken, profile, done) {
             console.log(JSON.stringify(profile, null, 2));
             // asynchronous
             process.nextTick(function() {
-                User.findOne({ 'facebook.id': profile.id }, function(err, user) {
-                    if(err) done(err);
-                    if(user) {
+                // check if the user is already logged in
+                if(!req.user) {
+                    User.findOne({ 'facebook.id': profile.id }, function(err, user) {
+                        if(err) done(err);
+                        if(user) {
+                            // if there is a user id already but no token (user was linked at one point and then removed)
+                            // just add our token and profile information 
+                            if(!user.facebook.token) {
+                                user.facebook.token = token;
+                                user.facebook.name = profile.displayName;
+                                user.save(err => {
+                                    if(err) throw err;
+                                    return done(null, user);
+                                });
+                            } else {
+                                // user found, return that user
+                                return done(null, user);
+                            } 
+                        } else {
+                            var newUser = new User();
+                            newUser.facebook.id = profile.id;
+                            newUser.facebook.token = token;
+                            newUser.facebook.name = profile.displayName;
+                            // newUser.facebook.email = profile.emails[0].value;
+                            
+                            newUser.save(function(err) {
+                                if(err) return done(err);
+                                return(null, newUser);
+                            });
+                        }
+                    });
+                } else {
+                    // user already exists and is logged in, we have to link accounts
+                    var user = req.user;
+                    user.facebook.id = profile.id;
+                    user.facebook.token = token;
+                    user.facebook.name = profile.displayName;
+
+                    user.save(function(err) {
+                        if(err) throw err;
                         return done(null, user);
-                    } else {
-                        var newUser = new User();
-                        newUser.facebook.id = profile.id;
-                        newUser.facebook.token = token;
-                        newUser.facebook.name = profile.displayName;
-                        // newUser.facebook.email = profile.emails[0].value;
-                        
-                        newUser.save(function(err) {
-                            if(err) return done(err);
-                            return(null, newUser);
-                        });
-                    }
-                });
+                    });
+                }
             });
     }));
 };
